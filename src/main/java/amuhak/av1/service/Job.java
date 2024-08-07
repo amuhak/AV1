@@ -23,7 +23,9 @@ public class Job implements Runnable {
 
     @Override
     public void run() {
-        String[] command = {"ffmpeg", "-nostdin", "-i", inputFilePath, "-c:v", "libsvtav1", outputFilePath, "-y"};
+        String[] command =
+                {"ffmpeg", "-nostdin", "-i", inputFilePath, "-c:v", "libsvtav1", "-c:a", "libopus", outputFilePath,
+                        "-y"};
         logger.info("Starting the process: {}", Arrays.toString(command));
         ProcessBuilder processBuilder = new ProcessBuilder(command);
         try {
