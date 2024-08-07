@@ -2,6 +2,7 @@
 package amuhak.av1.controller;
 
 import amuhak.av1.service.ConversionService;
+import org.slf4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
@@ -24,6 +25,7 @@ public class ConversionController {
 
     @Autowired
     private ConversionService conversionService;
+    public final Logger logger = org.slf4j.LoggerFactory.getLogger(ConversionController.class);
 
     @GetMapping("/")
     public String index() {
@@ -32,12 +34,15 @@ public class ConversionController {
 
     @PostMapping("/upload")
     ResponseEntity<?> uploadFile(@RequestParam("file") MultipartFile file, RedirectAttributes redirectAttributes) {
+        logger.info("Unvalidated File uploaded: {}", file.getOriginalFilename());
         if (file.isEmpty()) {
             redirectAttributes.addFlashAttribute("The File You uploaded is empty/invalid");
             return ResponseEntity.status(400).body("The File You uploaded is empty/invalid");
         }
         try {
-            String convertedFilePath = conversionService.convertToAv1(file);
+            logger.info("Valid File uploaded: {}", file.getOriginalFilename());
+            Path[] files = new Path[1];
+            String convertedFilePath = conversionService.convertToAv1(file, files);
             redirectAttributes.addFlashAttribute("message",
                     "Conversion successful. File available at: " + convertedFilePath);
             Path path = Paths.get(convertedFilePath);
@@ -57,5 +62,4 @@ public class ConversionController {
             return ResponseEntity.status(500).body("Failed to convert file: " + e.getMessage());
         }
     }
-
 }

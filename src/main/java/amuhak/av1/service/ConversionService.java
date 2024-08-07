@@ -15,7 +15,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 @Service
 public class ConversionService {
 
-    public String convertToAv1(MultipartFile file) throws IOException {
+    public String convertToAv1(MultipartFile file, Path[] files) throws IOException {
         String fileName = file.getOriginalFilename();
         assert fileName != null;
         String fileExtension = fileName.substring(fileName.lastIndexOf("."));
@@ -28,14 +28,16 @@ public class ConversionService {
         Path newPath = Paths.get("uploads/" + newName + "_av1_" + ".mp4");
         AtomicBoolean isDone = new AtomicBoolean(false);
         Job job = new Job(path.toAbsolutePath().toString(), newPath.toAbsolutePath().toString(), isDone);
+        files[0] = newPath;
         Converter.addJob(job);
         while (!isDone.get()) {
             try {
-                Thread.sleep(1000);
+                Thread.sleep(10);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
         }
+        Files.delete(path);
         return newPath.toAbsolutePath().toString();
     }
 }
