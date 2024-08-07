@@ -4,9 +4,9 @@
 
 You will need to have installed:
 
-- Java 22
+- Java 22 (Preferably GraalVM)
 - Maven 3.8.7 or higher
-- FFmpeg 7.0 or higher
+- FFmpeg 7.0 or higher (Full version)
 
 ## Run the project
 
@@ -20,3 +20,10 @@ mvn spring-boot:run
 ```
 
 You can replace `mvn` with `mvnw` if you don't have Maven installed on your system.
+
+You can also compile the project to a native image using GraalVM:
+
+```shell
+mvn native:compile -Pnative
+./target/AV1
+```
