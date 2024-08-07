@@ -18,3 +18,5 @@ cd AV1
 mvn clean install
 mvn spring-boot:run
 ```
+
+You can replace `mvn` with `mvnw` if you don't have Maven installed on your system.
