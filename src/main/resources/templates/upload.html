@@ -2,12 +2,73 @@
 <html lang="en">
 <head>
     <title>AV1 Converter</title>
+    <script>
+        async function uploadFile() {
+            const file = document.getElementById('fileInput').files[0];
+            const chunkSize = 90 * 1024 * 1024; // 90MB chunks
+            const chunks = Math.ceil(file.size / chunkSize) - 1;
+
+            // Calculate hash
+            const hash = await calculateHash(file);
+
+            for (let i = 0; i < chunks; i++) {
+                const start = i * chunkSize;
+                const end = Math.min(file.size, start + chunkSize);
+                const chunk = file.slice(start, end);
+
+                const formData = new FormData();
+                formData.append("Hash", hash);
+                formData.append("FileName", file.name);
+                formData.append("Chunk", chunk);
+                formData.append("Index", i);
+                formData.append("TotalChunks", chunks);
+
+                fetch('/upload-chunk', {
+                    method: 'POST',
+                    body: formData
+                }).then(response => response.json())
+                    .then(data => console.log(data))
+                    .catch(error => console.error('Error:', error));
+            }
+
+            console.log('File uploaded');
+            const start = chunks * chunkSize;
+            const end = Math.min(file.size, start + chunkSize);
+            const chunk = file.slice(start, end);
+            const formData = new FormData();
+            formData.append("Hash", hash);
+            formData.append("FileName", file.name);
+            formData.append("Chunk", chunk);
+            formData.append("Index", chunks);
+            formData.append("TotalChunks", chunks);
+            const response = await fetch('/upload-chunk', {
+                method: 'POST',
+                body: formData
+            });
+            console.log("Last chunk uploaded");
+            const data = await response.json();
+            if (data.downloadUrl) {
+                // Show download button
+                const downloadButton = document.createElement('a');
+                downloadButton.href = data.downloadUrl;
+                downloadButton.textContent = 'Download Converted File';
+                downloadButton.className = 'download-button';
+                document.body.appendChild(downloadButton);
+            }
+        }
+
+        async function calculateHash(file) {
+            const buffer = await file.arrayBuffer();
+            const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+            return hashHex;
+        }
+    </script>
 </head>
 <body>
 <h1>Upload Video for AV1 Conversion</h1>
-<form method="POST" enctype="multipart/form-data" action="/upload">
-    <input type="file" name="file" accept="video/*"/>
-    <input type="submit" value="Convert to AV1"/>
-</form>
+<input type="file" id="fileInput" accept="video/*"/>
+<button onclick="uploadFile()">Convert to AV1</button>
 </body>
 </html>
