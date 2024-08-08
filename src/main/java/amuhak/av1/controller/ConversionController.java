@@ -85,15 +85,17 @@ public class ConversionController {
         }
         try {
             logger.info("Valid File uploaded: {}", file.getName());
-            String convertedFilePath = conversionService.convertToAv1(file, hash);
+            Thread.sleep(1000);
+            return ResponseEntity.ok().body(Map.of("downloadUrl", "/uploads/" + file.getName()));
+            /*String convertedFilePath = conversionService.convertToAv1(file, hash);
             Path path = Paths.get(convertedFilePath);
             Resource resource = new UrlResource(path.toUri());
             if (resource.exists() || resource.isReadable()) {
                 return ResponseEntity.ok().body(Map.of("downloadUrl", "/uploads/" + hash + ".mp4"));
             } else {
                 throw new IOException("Could not read the file: " + convertedFilePath);
-            }
-        } catch (IOException e) {
+          */
+        } catch (Exception e) {
             return ResponseEntity.status(500).body("Failed to convert file: " + e.getMessage());
         }
     }
