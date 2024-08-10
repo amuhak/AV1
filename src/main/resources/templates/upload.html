@@ -24,23 +24,21 @@
                 formData.append("Index", i);
                 formData.append("TotalChunks", chunks);
 
-                let response = await fetch('/upload-chunk', {
+                await fetch('/upload-chunk', {
                     method: 'POST',
                     body: formData
                 })
-                console.log(response);
             }
 
             formData = new FormData();
             formData.append("FileName", file.name);
             formData.append("NoOfChunks", chunks);
             formData.append("Hash", hash);
-            const combineStatus = await fetch('/combine', {
+            await fetch('/combine', {
                 method: 'POST',
                 body: formData
             });
 
-            console.log(combineStatus);
 
             formData = new FormData();
             formData.append("Hash", hash);
@@ -50,18 +48,19 @@
                 body: formData
             });
             process = await process.json();
-            console.log(process);
             chunks = process.noOfParts;
             try {
-                const parts = [];
-                for (let i = 0; i < chunks; i++) {
+                const downloadChunk = async (i) => {
                     const response = await fetch(`/downloads/${hash}/${i}`);
                     if (!response.ok) {
                         throw new Error(`Failed to download part ${i}`);
                     }
-                    const blob = await response.blob();
-                    parts.push(blob);
-                }
+                    return await response.blob();
+                };
+
+                const parts = await Promise.all(
+                    Array.from({length: chunks}, (_, i) => downloadChunk(i))
+                );
 
                 const combinedBlob = new Blob(parts, {type: "application/octet-stream"});
                 const downloadUrl = URL.createObjectURL(combinedBlob);
