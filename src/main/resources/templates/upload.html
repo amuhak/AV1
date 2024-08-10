@@ -4,9 +4,10 @@
     <title>AV1 Converter</title>
     <script>
         async function uploadFile() {
+            let formData;
             const file = document.getElementById('fileInput').files[0];
             const chunkSize = 90 * 1024 * 1024; // 90MB chunks
-            const chunks = Math.ceil(file.size / chunkSize) - 1;
+            let chunks = Math.ceil(file.size / chunkSize);
 
             // Calculate hash
             const hash = await calculateHash(file);
@@ -16,44 +17,68 @@
                 const end = Math.min(file.size, start + chunkSize);
                 const chunk = file.slice(start, end);
 
-                const formData = new FormData();
+                formData = new FormData();
                 formData.append("Hash", hash);
                 formData.append("FileName", file.name);
                 formData.append("Chunk", chunk);
                 formData.append("Index", i);
                 formData.append("TotalChunks", chunks);
 
-                fetch('/upload-chunk', {
+                let response = await fetch('/upload-chunk', {
                     method: 'POST',
                     body: formData
-                }).then(response => response.json())
-                    .then(data => console.log(data))
-                    .catch(error => console.error('Error:', error));
+                })
+                console.log(response);
             }
 
-            console.log('File uploaded');
-            const start = chunks * chunkSize;
-            const end = Math.min(file.size, start + chunkSize);
-            const chunk = file.slice(start, end);
-            const formData = new FormData();
-            formData.append("Hash", hash);
+            formData = new FormData();
             formData.append("FileName", file.name);
-            formData.append("Chunk", chunk);
-            formData.append("Index", chunks);
-            formData.append("TotalChunks", chunks);
-            const response = await fetch('/upload-chunk', {
+            formData.append("NoOfChunks", chunks);
+            formData.append("Hash", hash);
+            const combineStatus = await fetch('/combine', {
                 method: 'POST',
                 body: formData
             });
-            console.log("Last chunk uploaded");
-            const data = await response.json();
-            if (data.downloadUrl) {
-                // Show download button
+
+            console.log(combineStatus);
+
+            formData = new FormData();
+            formData.append("Hash", hash);
+            formData.append("FileName", file.name);
+            let process = await fetch('/process', {
+                method: 'POST',
+                body: formData
+            });
+            process = await process.json();
+            console.log(process);
+            chunks = process.noOfParts;
+            try {
+                const parts = [];
+                for (let i = 0; i < chunks; i++) {
+                    const response = await fetch(`/downloads/${hash}/${i}`);
+                    if (!response.ok) {
+                        throw new Error(`Failed to download part ${i}`);
+                    }
+                    const blob = await response.blob();
+                    parts.push(blob);
+                }
+
+                const combinedBlob = new Blob(parts, {type: "application/octet-stream"});
+                const downloadUrl = URL.createObjectURL(combinedBlob);
                 const downloadButton = document.createElement('a');
-                downloadButton.href = data.downloadUrl;
-                downloadButton.textContent = 'Download Converted File';
+                downloadButton.href = downloadUrl;
+                downloadButton.download = `${hash}_av1.mp4`;  // You might want to set a more specific filename
+                downloadButton.textContent = 'Download Combined File';
                 downloadButton.className = 'download-button';
+                // Add button to document
                 document.body.appendChild(downloadButton);
+                // Cleanup
+                downloadButton.onclick = () => {
+                    setTimeout(() => URL.revokeObjectURL(downloadUrl), 100);
+                };
+            } catch (error) {
+                console.error("Error downloading and combining file:", error);
+                alert("An error occurred while preparing your download. Please try again.");
             }
         }
 
@@ -61,8 +86,7 @@
             const buffer = await file.arrayBuffer();
             const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
             const hashArray = Array.from(new Uint8Array(hashBuffer));
-            const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-            return hashHex;
+            return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
         }
     </script>
 </head>

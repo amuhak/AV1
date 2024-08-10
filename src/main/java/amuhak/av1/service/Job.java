@@ -5,17 +5,20 @@ import org.slf4j.Logger;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.Scanner;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 
 public class Job implements Runnable {
-    private final String inputFilePath;
-    private final String outputFilePath;
+    private final Path inputFilePath;
+    private final Path outputFilePath;
     public final Logger logger = org.slf4j.LoggerFactory.getLogger(Job.class);
     private final AtomicBoolean done;
 
 
-    public Job(String inputFilePath, String outputFilePath, AtomicBoolean done) {
+    public Job(Path inputFilePath, Path outputFilePath, AtomicBoolean done) {
         this.inputFilePath = inputFilePath;
         this.outputFilePath = outputFilePath;
         this.done = done;
@@ -24,8 +27,8 @@ public class Job implements Runnable {
     @Override
     public void run() {
         String[] command =
-                {"ffmpeg", "-nostdin", "-i", inputFilePath, "-c:v", "libsvtav1", "-c:a", "libopus", outputFilePath,
-                        "-y"};
+                {"ffmpeg", "-nostdin", "-i", inputFilePath.toAbsolutePath().toString(), "-c:v", "libsvtav1", "-c:a",
+                        "libopus", outputFilePath.toAbsolutePath().toString(), "-y"};
         logger.info("Starting the process: {}", Arrays.toString(command));
         ProcessBuilder processBuilder = new ProcessBuilder(command);
         try {
@@ -53,19 +56,19 @@ public class Job implements Runnable {
     }
 
     private static class StreamGobbler extends Thread {
-        private InputStream inputStream;
-        private java.util.function.Consumer<String> consumer;
+        private final InputStream inputStream;
+        private final Consumer<String> consumer;
 
-        public StreamGobbler(InputStream inputStream, java.util.function.Consumer<String> consumer) {
+        public StreamGobbler(InputStream inputStream, Consumer<String> consumer) {
             this.inputStream = inputStream;
             this.consumer = consumer;
         }
 
         @Override
         public void run() {
-            try (java.util.Scanner scanner = new java.util.Scanner(inputStream)) {
-                while (scanner.hasNextLine()) {
-                    consumer.accept(scanner.nextLine());
+            try (Scanner sc = new Scanner(inputStream)) {
+                while (sc.hasNextLine()) {
+                    consumer.accept(sc.nextLine());
                 }
             }
         }

@@ -16,7 +16,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.file.Files;
@@ -46,66 +45,70 @@ public class ConversionController {
                                   @RequestParam("Chunk") MultipartFile chunk, @RequestParam("Index") int index,
                                   @RequestParam("TotalChunks") int totalChunks) {
         if (chunk.isEmpty()) {
-            // redirect to invalid (/invalid) page if file is empty
-            return ResponseEntity.status(400).body("The File You uploaded is empty/invalid");
+            return ResponseEntity.status(400).body(Map.of("error", "Chunk is empty"));
         }
         try {
             Path chunkPath = Paths.get("uploads/" + hash + "/" + index + ".part");
-            Files.createDirectories(chunkPath.getParent());
+            Files.createDirectories(chunkPath.getParent());  // create directories "uploads/hash"
             Files.write(chunkPath, chunk.getBytes());
-            if (index == totalChunks) {
+            /*if (index == totalChunks) {
                 Path outputPath = Paths.get("uploads/" + fileName);
                 combineChunks(hash, totalChunks, outputPath);
-                return processCompleteFile(outputPath.toFile(), hash);
-            }
+                return process(outputPath.toFile(), hash);
+            }*/
             return ResponseEntity.ok().body(Map.of("Good", "Good"));
         } catch (IOException e) {
             return ResponseEntity.status(500).body("Failed to process chunk: " + e.getMessage());
         }
     }
 
-
-    private void combineChunks(String filename, int totalChunks, Path outputPath) throws IOException {
+    @PostMapping("/combine")
+    private ResponseEntity<?> combineChunks(@RequestParam("FileName") String fileName,
+                                            @RequestParam("NoOfChunks") int NoOfChunks,
+                                            @RequestParam("Hash") String hash) {
+        String extension = fileName.substring(fileName.lastIndexOf("."));
+        Path outputPath = Paths.get("uploads" + "/" + hash + extension);
         try (OutputStream out = Files.newOutputStream(outputPath)) {
-            for (int i = 0; i <= totalChunks; i++) {
-                Path chunkPath = Paths.get("uploads/" + filename + "/" + i + ".part");
+            for (int i = 0; i < NoOfChunks; i++) {
+                Path chunkPath = Paths.get("uploads/" + hash + "/" + i + ".part");
                 Files.copy(chunkPath, out);
-                Files.delete(chunkPath);
             }
-            FileUtils.deleteDirectory(Paths.get("uploads/" + filename).toFile());
+            FileUtils.deleteDirectory(Paths.get("uploads/" + hash).toFile());
+        } catch (IOException e) {
+            logger.error("Failed to combine chunks: {}", e.getMessage());
+            return ResponseEntity.status(500).body(Map.of("error", "Failed to combine chunks" + e.getMessage()));
         }
+        return ResponseEntity.ok().body(Map.of("success", "Chunks combined successfully"));
     }
 
 
-    @PostMapping("/upload")
-    ResponseEntity<?> processCompleteFile(File file, String hash) {
-        logger.info("Unvalidated File uploaded: {}", file.getName());
-        if (!file.exists()) {
-            return ResponseEntity.status(400).body("The File You uploaded is empty/invalid");
-        }
+    @PostMapping("/process")
+    ResponseEntity<?> process(@RequestParam("Hash") String hash, @RequestParam("FileName") String fileName) {
+        logger.info("Processing file: {}", hash);
         try {
-            logger.info("Valid File uploaded: {}", file.getName());
+            // return ResponseEntity.ok().body(Map.of("downloadUrl", "downloads/" + hash + ".mp4"));
             Thread.sleep(1000);
-            return ResponseEntity.ok().body(Map.of("downloadUrl", "/uploads/" + file.getName()));
-            /*String convertedFilePath = conversionService.convertToAv1(file, hash);
-            Path path = Paths.get(convertedFilePath);
-            Resource resource = new UrlResource(path.toUri());
-            if (resource.exists() || resource.isReadable()) {
-                return ResponseEntity.ok().body(Map.of("downloadUrl", "/uploads/" + hash + ".mp4"));
-            } else {
-                throw new IOException("Could not read the file: " + convertedFilePath);
-          */
+            String extention = fileName.substring(fileName.lastIndexOf("."));
+            Path file = Paths.get("uploads/" + hash + extention);
+            int noOfParts = conversionService.convertToAv1(file, hash);
+            return ResponseEntity.ok().body(Map.of("noOfParts", noOfParts));
         } catch (Exception e) {
-            return ResponseEntity.status(500).body("Failed to convert file: " + e.getMessage());
+            logger.error("Failed to process file: {}", e.getMessage());
+            return ResponseEntity.status(500).body(Map.of("error", "Failed to process file: " + e.getMessage()));
         }
     }
 
-    @GetMapping("/uploads/{url}")
-    public ResponseEntity<Resource> downloadFile(@PathVariable String url) throws IOException {
-        Path filePath = Paths.get("uploads/" + url);
+    @GetMapping("/downloads/{hash}/{partNo}")
+    public ResponseEntity<Resource> downloadFile(@PathVariable String hash, @PathVariable int partNo) throws IOException {
+        Path filePath = Paths.get("downloads" + "/" + hash + "/" + partNo + ".part");
         Resource resource = new UrlResource(filePath.toUri());
-        return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + resource.getFilename() + "\"")
-                .body(resource);
+        if (resource.exists() && resource.isReadable()) {
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + resource.getFilename() + "\"")
+                    .header(HttpHeaders.CONTENT_TYPE, "application/octet-stream")
+                    .body(resource);
+        } else {
+            return ResponseEntity.notFound().build();
+        }
     }
 }

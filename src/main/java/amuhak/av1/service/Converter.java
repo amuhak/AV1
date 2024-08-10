@@ -5,9 +5,11 @@ import org.slf4j.Logger;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 @Service
 public class Converter {
@@ -18,6 +20,8 @@ public class Converter {
     private int maximumPoolSize;
 
     private static ThreadPoolExecutor executor;
+
+    public static ConcurrentHashMap<String, AtomicBoolean> conversionStatus = new ConcurrentHashMap<>();
 
     @PostConstruct
     private void initializeExecutor() {
