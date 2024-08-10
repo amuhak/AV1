@@ -12,12 +12,12 @@
             // Calculate hash
             const hash = await calculateHash(file);
 
-            for (let i = 0; i < chunks; i++) {
+            const uploadChunk = async (i) => {
                 const start = i * chunkSize;
                 const end = Math.min(file.size, start + chunkSize);
                 const chunk = file.slice(start, end);
 
-                formData = new FormData();
+                const formData = new FormData();
                 formData.append("Hash", hash);
                 formData.append("FileName", file.name);
                 formData.append("Chunk", chunk);
@@ -27,8 +27,12 @@
                 await fetch('/upload-chunk', {
                     method: 'POST',
                     body: formData
-                })
-            }
+                });
+            };
+
+            await Promise.all(
+                Array.from({length: chunks}, (_, i) => uploadChunk(i))
+            );
 
             formData = new FormData();
             formData.append("FileName", file.name);
