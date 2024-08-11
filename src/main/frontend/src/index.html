@@ -16,7 +16,7 @@
             status.textContent = 'Uploading...';
             replace.replaceWith(status);
 
-            const chunkSize = 90 * 1024 * 1024; // 90MB chunks
+            const chunkSize = 90 * 1024 * 1024; // 90 MB chunks
             let chunks = Math.ceil(file.size / chunkSize);
 
             // Calculate hash
