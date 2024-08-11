@@ -32,12 +32,7 @@ public class ConversionController {
 
     @GetMapping("/")
     public String index() {
-        return "upload";
-    }
-
-    @GetMapping("/invalid")
-    public String invalid() {
-        return "invalid";
+        return "index";
     }
 
     @PostMapping("/upload-chunk")

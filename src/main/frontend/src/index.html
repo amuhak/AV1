@@ -1,11 +1,21 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <title>AV1 Converter</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script>
         async function uploadFile() {
             let formData;
             const file = document.getElementById('fileInput').files[0];
+            if (!file) {
+                alert("Please select a file to upload.");
+                return;
+            }
+            let replace = document.getElementById('status');
+            let status = document.createElement('b');
+            status.textContent = 'Uploading...';
+            replace.replaceWith(status);
+
             const chunkSize = 90 * 1024 * 1024; // 90MB chunks
             let chunks = Math.ceil(file.size / chunkSize);
 
@@ -34,6 +44,8 @@
                 Array.from({length: chunks}, (_, i) => uploadChunk(i))
             );
 
+            status.textContent = 'Combining...';
+
             formData = new FormData();
             formData.append("FileName", file.name);
             formData.append("NoOfChunks", chunks);
@@ -43,6 +55,7 @@
                 body: formData
             });
 
+            status.textContent = 'Processing on remote server...';
 
             formData = new FormData();
             formData.append("Hash", hash);
@@ -51,8 +64,12 @@
                 method: 'POST',
                 body: formData
             });
+
             process = await process.json();
             chunks = process.noOfParts;
+
+            status.textContent = 'Downloading...';
+
             try {
                 const downloadChunk = async (i) => {
                     const response = await fetch(`/downloads/${hash}/${i}`);
@@ -74,7 +91,7 @@
                 downloadButton.textContent = 'Download Combined File';
                 downloadButton.className = 'download-button';
                 // Add button to document
-                document.body.appendChild(downloadButton);
+                status.replaceWith(downloadButton);
                 // Cleanup
                 downloadButton.onclick = () => {
                     setTimeout(() => URL.revokeObjectURL(downloadUrl), 100);
@@ -92,10 +109,90 @@
             return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
         }
     </script>
+    <title>AV1 Converter</title>
+    <style>
+        :root {
+            --bg-color: #f0f0f0;
+            --text-color: #333;
+            --container-bg: white;
+            --input-border: #ddd;
+            --button-bg: #4CAF50;
+            --button-hover: #45a049;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg-color: #1a1a1a;
+                --text-color: #f0f0f0;
+                --container-bg: #2a2a2a;
+                --input-border: #444;
+                --button-bg: #45a049;
+                --button-hover: #4CAF50;
+            }
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        h1 {
+            text-align: center;
+        }
+
+        .container {
+            background-color: var(--container-bg);
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        #fileInput {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 20px;
+            border: 1px solid var(--input-border);
+            border-radius: 4px;
+            background-color: var(--container-bg);
+            color: var(--text-color);
+            box-sizing: border-box;
+        }
+
+        #status {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            background-color: var(--button-bg);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+
+        #status:hover {
+            background-color: var(--button-hover);
+        }
+
+        #status:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+    </style>
 </head>
 <body>
-<h1>Upload Video for AV1 Conversion</h1>
-<input type="file" id="fileInput" accept="video/*"/>
-<button onclick="uploadFile()">Convert to AV1</button>
+<div class="container">
+    <h1>AV1 Video Converter</h1>
+    <p>Select a video file to convert to AV1 format:</p>
+    <input type="file" id="fileInput" accept="video/*"/>
+    <button onclick="uploadFile()" id="status">Convert to AV1</button>
+</div>
 </body>
 </html>
