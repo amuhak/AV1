@@ -5,12 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script>
         async function uploadFile() {
+            console.log('Starting uploadFile function');
             let formData;
             const file = document.getElementById('fileInput').files[0];
             if (!file) {
+                console.log('No file selected');
                 alert("Please select a file to upload.");
                 return;
             }
+            console.log(`File selected: ${file.name}, size: ${file.size} bytes`);
             let replace = document.getElementById('status');
             let status = document.createElement('b');
             status.textContent = 'Uploading...';
@@ -18,14 +21,17 @@
 
             const chunkSize = 90 * 1024 * 1024; // 90 MB chunks
             let chunks = Math.ceil(file.size / chunkSize);
+            console.log(`File will be split into ${chunks} chunks of ${chunkSize} bytes each`);
 
             // Calculate hash
             const hash = await calculateHash(file);
+            console.log(`Calculated file hash: ${hash}`);
 
             const uploadChunk = async (i) => {
                 const start = i * chunkSize;
                 const end = Math.min(file.size, start + chunkSize);
                 const chunk = file.slice(start, end);
+                console.log(`Uploading chunk ${i}/${chunks}, size: ${chunk.size} bytes`);
 
                 const formData = new FormData();
                 formData.append("Hash", hash);
@@ -34,44 +40,64 @@
                 formData.append("Index", i);
                 formData.append("TotalChunks", chunks);
 
-                await fetch('/upload-chunk', {
-                    method: 'POST',
-                    body: formData
-                });
+                try {
+                    const response = await fetch('/upload-chunk', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    console.log(`Chunk ${i + 1} upload response status: ${response.status}`);
+                } catch (error) {
+                    console.error(`Error uploading chunk ${i}:`, error);
+                }
             };
 
             await Promise.all(
                 Array.from({length: chunks}, (_, i) => uploadChunk(i))
             );
+            console.log('All chunks uploaded successfully');
 
             status.textContent = 'Combining...';
+            console.log('Starting combine process');
 
             formData = new FormData();
             formData.append("FileName", file.name);
             formData.append("NoOfChunks", chunks);
             formData.append("Hash", hash);
-            await fetch('/combine', {
-                method: 'POST',
-                body: formData
-            });
+            try {
+                const combineResponse = await fetch('/combine', {
+                    method: 'POST',
+                    body: formData
+                });
+                console.log(`Combine response status: ${combineResponse.status}`);
+            } catch (error) {
+                console.error('Error during combine process:', error);
+            }
 
             status.textContent = 'Processing on remote server...';
+            console.log('Starting remote processing');
 
             formData = new FormData();
             formData.append("Hash", hash);
             formData.append("FileName", file.name);
-            let process = await fetch('/process', {
-                method: 'POST',
-                body: formData
-            });
-
-            process = await process.json();
-            chunks = process.noOfParts;
+            let process;
+            try {
+                process = await fetch('/process', {
+                    method: 'POST',
+                    body: formData
+                });
+                process = await process.json();
+                chunks = process.noOfParts;
+                console.log(`Remote processing complete. Number of parts: ${chunks}`);
+            } catch (error) {
+                console.error('Error during remote processing:', error);
+            }
 
             status.textContent = 'Downloading...';
+            console.log('Starting download process');
 
             try {
                 const downloadChunk = async (i) => {
+                    console.log(`Downloading chunk ${i + 1}/${chunks}`);
                     const response = await fetch(`/downloads/${hash}/${i}`);
                     if (!response.ok) {
                         throw new Error(`Failed to download part ${i}`);
@@ -82,19 +108,24 @@
                 const parts = await Promise.all(
                     Array.from({length: chunks}, (_, i) => downloadChunk(i))
                 );
+                console.log('All parts downloaded successfully');
 
                 const combinedBlob = new Blob(parts, {type: "application/octet-stream"});
+                console.log(`Combined blob size: ${combinedBlob.size} bytes`);
                 const downloadUrl = URL.createObjectURL(combinedBlob);
                 const downloadButton = document.createElement('a');
                 downloadButton.href = downloadUrl;
-                downloadButton.download = `${hash}_av1.mp4`;  // You might want to set a more specific filename
+                downloadButton.download = `${hash}_av1.mp4`;
                 downloadButton.textContent = 'Download Combined File';
                 downloadButton.className = 'download-button';
-                // Add button to document
                 status.replaceWith(downloadButton);
-                // Cleanup
+                console.log('Download button added to document');
+
                 downloadButton.onclick = () => {
-                    setTimeout(() => URL.revokeObjectURL(downloadUrl), 100);
+                    setTimeout(() => {
+                        URL.revokeObjectURL(downloadUrl);
+                        console.log('Object URL revoked');
+                    }, 100);
                 };
             } catch (error) {
                 console.error("Error downloading and combining file:", error);
