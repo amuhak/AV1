@@ -40,6 +40,7 @@ public class ConversionController {
     ResponseEntity<?> uploadChunk(@RequestParam("Hash") String hash, @RequestParam("FileName") String fileName,
                                   @RequestParam("Chunk") MultipartFile chunk, @RequestParam("Index") int index,
                                   @RequestParam("TotalChunks") int totalChunks) {
+        logger.info("Uploading chunk: {} of {} for hash {}", index, totalChunks, hash);
         if (chunk.isEmpty()) {
             return ResponseEntity.status(400).body(Map.of("error", "Chunk is empty"));
         }
@@ -47,14 +48,9 @@ public class ConversionController {
             Path chunkPath = Paths.get("uploads/" + hash + "/" + index + ".part");
             Files.createDirectories(chunkPath.getParent());  // create directories "uploads/hash"
             Files.write(chunkPath, chunk.getBytes());
-            /*if (index == totalChunks) {
-                Path outputPath = Paths.get("uploads/" + fileName);
-                combineChunks(hash, totalChunks, outputPath);
-                return process(outputPath.toFile(), hash);
-            }*/
             return ResponseEntity.ok().body(Map.of("Good", "Good"));
         } catch (IOException e) {
-            return ResponseEntity.status(500).body("Failed to process chunk: " + e.getMessage());
+            return ResponseEntity.status(500).body(Map.of("error", "Failed to upload chunk: " + e.getMessage()));
         }
     }
 
@@ -62,6 +58,7 @@ public class ConversionController {
     private ResponseEntity<?> combineChunks(@RequestParam("FileName") String fileName,
                                             @RequestParam("NoOfChunks") int NoOfChunks,
                                             @RequestParam("Hash") String hash) {
+        logger.info("Combining chunks for hash: {}", hash);
         String extension = fileName.substring(fileName.lastIndexOf("."));
         Path outputPath = Paths.get("uploads" + "/" + hash + extension);
         try (OutputStream out = Files.newOutputStream(outputPath)) {
@@ -96,6 +93,7 @@ public class ConversionController {
 
     @GetMapping("/downloads/{hash}/{partNo}")
     public ResponseEntity<Resource> downloadFile(@PathVariable String hash, @PathVariable int partNo) throws IOException {
+        logger.info("Downloading part: {} for hash: {}", partNo, hash);
         Path filePath = Paths.get("downloads" + "/" + hash + "/" + partNo + ".part");
         Resource resource = new UrlResource(filePath.toUri());
         if (resource.exists() && resource.isReadable()) {
