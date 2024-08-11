@@ -32,6 +32,7 @@ public class ConversionController {
 
     @GetMapping("/")
     public String index() {
+        logger.info("User accessed the index page");
         return "index";
     }
 
