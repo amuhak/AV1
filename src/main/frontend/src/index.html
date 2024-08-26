@@ -89,6 +89,7 @@
                 chunks = process.noOfParts;
                 console.log(`Remote processing complete. Number of parts: ${chunks}`);
             } catch (error) {
+                console.log(error);
                 console.error('Error during remote processing:', error);
             }
 
