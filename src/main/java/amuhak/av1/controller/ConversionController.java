@@ -2,6 +2,7 @@
 package amuhak.av1.controller;
 
 import amuhak.av1.service.ConversionService;
+import amuhak.av1.service.Converter;
 import org.apache.tomcat.util.http.fileupload.FileUtils;
 import org.slf4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -9,6 +10,8 @@ import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
+import org.springframework.scheduling.annotation.Async;
+import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -23,6 +26,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Map;
 
+@EnableAsync
 @Controller
 public class ConversionController {
 
@@ -55,9 +59,9 @@ public class ConversionController {
     }
 
     @PostMapping("/combine")
-    private ResponseEntity<?> combineChunks(@RequestParam("FileName") String fileName,
-                                            @RequestParam("NoOfChunks") int NoOfChunks,
-                                            @RequestParam("Hash") String hash) {
+    public ResponseEntity<?> combineChunks(@RequestParam("FileName") String fileName,
+                                           @RequestParam("NoOfChunks") int NoOfChunks,
+                                           @RequestParam("Hash") String hash) {
         logger.info("Combining chunks for hash: {}", hash);
         String extension = fileName.substring(fileName.lastIndexOf("."));
         Path outputPath = Paths.get("uploads" + "/" + hash + extension);
@@ -74,20 +78,33 @@ public class ConversionController {
         return ResponseEntity.ok().body(Map.of("success", "Chunks combined successfully"));
     }
 
-
+    @Async
     @PostMapping("/process")
-    ResponseEntity<?> process(@RequestParam("Hash") String hash, @RequestParam("FileName") String fileName) {
+    public void process(@RequestParam("Hash") String hash, @RequestParam("FileName") String fileName) {
         logger.info("Processing file: {}", hash);
         try {
-            // return ResponseEntity.ok().body(Map.of("downloadUrl", "downloads/" + hash + ".mp4"));
             Thread.sleep(1000);
             String extention = fileName.substring(fileName.lastIndexOf("."));
             Path file = Paths.get("uploads/" + hash + extention);
             int noOfParts = conversionService.convertToAv1(file, hash);
-            return ResponseEntity.ok().body(Map.of("noOfParts", noOfParts));
+            logger.info("File processed into {} parts", noOfParts);
         } catch (Exception e) {
             logger.error("Failed to process file: {}", e.getMessage());
-            return ResponseEntity.status(500).body(Map.of("error", "Failed to process file: " + e.getMessage()));
+        }
+    }
+
+    @PostMapping("/done")
+    public ResponseEntity<?> isDone(@RequestParam("Hash") String hash) {
+        logger.info("Checking if conversion is done for hash: {}", hash);
+        if (Converter.conversionStatus.containsKey(hash + ".mp4")) {
+            var status = Converter.conversionStatus.get(hash + ".mp4");
+            if (status.done().get()) {
+                return ResponseEntity.ok().body(Map.of("done", status.parts().get()));
+            } else {
+                return ResponseEntity.ok().body(Map.of("done", false));
+            }
+        } else {
+            return ResponseEntity.status(404).body(Map.of("error", "Hash not found"));
         }
     }
 

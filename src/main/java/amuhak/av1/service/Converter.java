@@ -10,6 +10,7 @@ import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @Service
 public class Converter {
@@ -21,7 +22,7 @@ public class Converter {
 
     private static ThreadPoolExecutor executor;
 
-    public static ConcurrentHashMap<String, AtomicBoolean> conversionStatus = new ConcurrentHashMap<>();
+    public static ConcurrentHashMap<String, Status> conversionStatus = new ConcurrentHashMap<>();
 
     @PostConstruct
     private void initializeExecutor() {
@@ -37,5 +38,8 @@ public class Converter {
         } else {
             logger.error("Executor not initialized. Cannot add job.");
         }
+    }
+
+    public record Status(AtomicBoolean doneInternal, AtomicBoolean done, AtomicInteger parts) {
     }
 }

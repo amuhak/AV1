@@ -79,19 +79,54 @@
             formData = new FormData();
             formData.append("Hash", hash);
             formData.append("FileName", file.name);
-            let process;
             try {
-                process = await fetch('/process', {
+                await fetch('/process', {
                     method: 'POST',
                     body: formData
                 });
-                process = await process.json();
-                chunks = process.noOfParts;
-                console.log(`Remote processing complete. Number of parts: ${chunks}`);
+                console.log('Remote processing request send');
             } catch (error) {
                 console.log(error);
                 console.error('Error during remote processing:', error);
             }
+
+            let done = false;
+            let noOfParts;
+            while (!done) {
+                try {
+                    const formData = new FormData();
+                    formData.append("Hash", hash);
+                    const response = await fetch('/done', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+
+                    const data = await response.json();
+
+                    if (data.done !== false) {
+                        done = true;
+                        noOfParts = data.done;
+                        console.log(`Conversion completed with ${noOfParts} parts`);
+                    } else {
+                        console.log('Conversion still in progress...');
+                    }
+
+                } catch (error) {
+                    console.error('Error checking status:', error);
+                    alert('An error occurred while processing the file. Please try again.');
+                    return;
+                }
+
+                if (!done) {
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                }
+            }
+
+            console.log('Conversion process completed');
 
             status.textContent = 'Downloading...';
             console.log('Starting download process');
