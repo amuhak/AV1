@@ -94,12 +94,7 @@
             let noOfParts;
             while (!done) {
                 try {
-                    const formData = new FormData();
-                    formData.append("Hash", hash);
-                    const response = await fetch('/done', {
-                        method: 'POST',
-                        body: formData
-                    });
+                    const response = await fetch(`/status/${hash}`);
 
                     if (!response.ok) {
                         throw new Error(`HTTP error! status: ${response.status}`);

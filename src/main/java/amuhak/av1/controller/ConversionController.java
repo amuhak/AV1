@@ -10,7 +10,6 @@ import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -78,23 +77,24 @@ public class ConversionController {
         return ResponseEntity.ok().body(Map.of("success", "Chunks combined successfully"));
     }
 
-    @Async
     @PostMapping("/process")
-    public void process(@RequestParam("Hash") String hash, @RequestParam("FileName") String fileName) {
+    public ResponseEntity<?> process(@RequestParam("Hash") String hash, @RequestParam("FileName") String fileName) {
         logger.info("Processing file: {}", hash);
         try {
             Thread.sleep(1000);
             String extention = fileName.substring(fileName.lastIndexOf("."));
             Path file = Paths.get("uploads/" + hash + extention);
-            int noOfParts = conversionService.convertToAv1(file, hash);
-            logger.info("File processed into {} parts", noOfParts);
+            conversionService.convertToAv1(file, hash);
+            logger.info("File processed into parts");
+            return ResponseEntity.ok().body(Map.of("ok", "ok"));
         } catch (Exception e) {
             logger.error("Failed to process file: {}", e.getMessage());
+            return ResponseEntity.status(500).body(Map.of("error", "Failed to process file: " + e.getMessage()));
         }
     }
 
-    @PostMapping("/done")
-    public ResponseEntity<?> isDone(@RequestParam("Hash") String hash) {
+    @GetMapping("/status/{hash}")
+    public ResponseEntity<?> isDone(@PathVariable String hash) {
         logger.info("Checking if conversion is done for hash: {}", hash);
         if (Converter.conversionStatus.containsKey(hash + ".mp4")) {
             var status = Converter.conversionStatus.get(hash + ".mp4");
@@ -111,6 +111,7 @@ public class ConversionController {
     @GetMapping("/downloads/{hash}/{partNo}")
     public ResponseEntity<Resource> downloadFile(@PathVariable String hash, @PathVariable int partNo) throws IOException {
         logger.info("Downloading part: {} for hash: {}", partNo, hash);
+        Converter.conversionStatus.remove(hash + ".mp4");
         Path filePath = Paths.get("downloads" + "/" + hash + "/" + partNo + ".part");
         Resource resource = new UrlResource(filePath.toUri());
         if (resource.exists() && resource.isReadable()) {
